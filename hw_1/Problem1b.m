@@ -2,39 +2,20 @@ clc;
 clear all;
 close all;
 
+fft_obj = vision.FFT;
+ifft_obj = vision.IFFT;
 I = imread('./Assigment-1/TEST_IMAGES/house.tif');
-img = I(:,:,1);
-% figure; imshow(img); title('original_img');
-img = single(imresize(img, 0.3));
-for k = 0.1:0.5:1.1
-    img = imgaussfilt(img,k);
-    [m,n] = size(img);
-    output = zeros(m,n);
-    sum_inner = 0;
-    h = waitbar(0, 'Calculating...');
+img = im2single(I(:,:,1));
+h = fspecial('gaussian',2,1);
 
-    for l = 0:m-1
-        for k = 0:n-1
-            for x = 0:m-1
-                for y = 0:n-1
-                    sum_inner = sum_inner + img(x+1,y+1) * exp(-1i*2*3.1416*(k*x/m+l*y/n));
-                end
-            end
-            output(k+1,l+1) = sum_inner;
-            sum_inner = 0;
-        end
-        waitbar(l/m);
-    end
+img_b = imfilter(img,h);
+img_t = imresize(img_b, 0.2);
+J = step(fft_obj, img_t);
+inverse = step(ifft_obj, J);
+inverse = imresize(inverse, 1/0.2);
+J_shifted = fftshift(J);
+%     figure; imshow(img_b); title('input image');
+result_img = log(max(abs(J_shifted), 1e-6));
 
-    close(h)
-    output2 = output*255;
-    figure; imshow(output2); title('dft plot');
-    output3 = zeros(m,n);
-    for u = 1:m
-        for v = 1:n
-            output3(u,v) = sqrt((real(output2(u,v))^2 + imag(output(u,v))^2))/1000000;
-        end
-    end
-    figure; imshow(output3); colormap(jet); colorbar; title('abs value of dft plot');
-end
-
+figure; imshow(result_img), colormap(jet(64)); title('magnitude of the DFT of I');
+figure; imshowpair(img, inverse, 'montage'); title('reconstruction by DFT (sample rate = 0.2)');
