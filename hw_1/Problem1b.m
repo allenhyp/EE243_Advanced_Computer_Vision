@@ -2,7 +2,7 @@ clc;
 clear all;
 close all;
 
-I = imread('./Assigment-1/TEST_IMAGES/house.tif');
+I = imread('./house.tif');
 img = im2single(I(:,:,1));
 img_f = imgaussfilt(img,3);
 [m,n] = size(img_f);

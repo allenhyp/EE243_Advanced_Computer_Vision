@@ -2,7 +2,7 @@ clc;
 clear all;
 close all;
 
-img = imread('./Assigment-1/images/gonzalezwoods725.PNG');
+img = imread('./gonzalezwoods725.PNG');
 img = rgb2gray(img);
 
 M = 4;
