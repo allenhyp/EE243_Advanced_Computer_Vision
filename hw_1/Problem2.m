@@ -4,31 +4,27 @@ close all;
 
 img = imread('./Assigment-1/images/gonzalezwoods725.PNG');
 img = rgb2gray(img);
-fft_obj = vision.FFT;
-% ifft_obj = vision.IFFT;
-[m,n] = size(img);
-d = int16(m/4);
-k = 1;
-figure;
-for i = 0:3
-    for j = 0:3
-        seg_img = single(img(1+i*d:1+i*d+d,1+j*d:1+j*d+d));
-        J = step(fft_obj, seg_img);
-        J_shifted = fftshift(J);
-        result_img = log(max(abs(J_shifted), 1e-6));
-        subplot(4,4,k), imshow(result_img); colormap(gca,jet(64));
-        k = k+1;
+
+M = 4;
+N = 4;
+B = zeros(M,N);
+for k = 0:3
+    if k == 0
+        alpha = sqrt(1/M);
+    else
+        alpha = sqrt(2/M);
+    end
+    for n = 0:3
+        B(n+1,k+1) = alpha*cos(k*pi*(2*n+1)/(2*M));
     end
 end
 
 figure;
 k = 1;
-for i = 0:3
-    for j = 0:3
-        seg_img = single(img(1+i*d:1+i*d+d,1+j*d:1+j*d+d));
-        J = dct2(seg_img);
-        result_img = log(abs(J));
-        subplot(4,4,k), imshow(result_img,[]); colormap(gca,jet(64));
+for p = 1:4
+    for q = 1:4
+        dct_basis = B(:,p)*B(:,q)';
+        subplot(4,4,k), imagesc(dct_basis); colormap(gray);
         k = k+1;
     end
 end
