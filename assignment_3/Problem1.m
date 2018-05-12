@@ -1,16 +1,17 @@
 close all
 clear all
 
-I = imread('house.tif');
-I=imresize(I(:,:,1),[100 100]);
+I = imread('./peppers_color.tif');
+I = imresize(I, [100, 100]);
+% I = imresize(I(:,:,1),[100 100]);
 % I=I(:,:,1);
 [rows, cols, c] = size(I);
 N = rows * cols;
 
 r = 2;
-sig_i = 4;
+sig_i = 5;
 sig_x = 6;
-nc_threshold = 0.03;
+nc_threshold = 0.015;
 area_threshold = 100;
 
 V = zeros(N,c);
