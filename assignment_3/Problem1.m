@@ -1,18 +1,20 @@
 close all
 clear all
 
-I = imread('./peppers_color.tif');
-I = imresize(I, [100, 100]);
+[I, map] = imread('./peppers_color.tif');
+I = ind2rgb(I(:,:,1), map);
 % I = imresize(I(:,:,1),[100 100]);
-% I=I(:,:,1);
+I = imresize(I, [100, 100]);
+% I = rgb2gray(I);
+% figure; imshow(I);
 [rows, cols, c] = size(I);
 N = rows * cols;
 
 r = 2;
-sig_i = 5;
+sig_i = 4;
 sig_x = 6;
-nc_threshold = 0.015;
-area_threshold = 100;
+nc_threshold = 0.027;
+area_threshold = 300;
 
 V = zeros(N,c);
 W = sparse(N,N); 
@@ -63,18 +65,15 @@ r_t = floor(r);
 for m =1:cols
     for n =1:rows
         
-        %satisfies X(j)-r < X(i) < X(j)+r  
         range_cols = (m - r_t) : (m + r_t); 
         range_rows = ((n - r_t) :(n + r_t))';
-        valid_col_index = range_cols >= 1 & range_cols <= cols;  %valid col. index
-        valid_row_index = range_rows >= 1 & range_rows <= rows;  %valid row index
+        valid_col_index = range_cols >= 1 & range_cols <= cols;
+        valid_row_index = range_rows >= 1 & range_rows <= rows;
         
-        range_cols = range_cols(valid_col_index);   %range of cols. and rows satisfying euclidean distance metric  
+        range_cols = range_cols(valid_col_index);   
         range_rows = range_rows(valid_row_index);
         
-        %current_vertex index
         cur_vertex = n + (m - 1) * rows;
- %-----------------------------------------------------------------------------------------%       
         
         l_r = length(range_rows);
         l_c = length(range_cols);
@@ -118,14 +117,12 @@ for m =1:cols
             end
         end
         diff_X = X_I - X_J;
-        diff_X = sum(diff_X .* diff_X, 3); % squared euclid distance
+        diff_X = sum(diff_X .* diff_X, 3);
         
-        % |X(i) - X(j)| <= r 
         valid_index = (sqrt(diff_X) <= r);
         n_vertex = n_vertex(valid_index);
         diff_X = diff_X(valid_index);
 
-        % feature vector disimilarity
         F_J = zeros(length(n_vertex),1,c); 
         for i = 1:length(n_vertex)
             for k = 1:c
@@ -151,12 +148,10 @@ for m =1:cols
     end
 end
 
-% call to partition routine
 node_index = (1:N)'; 
 [node_index Ncut] = NcutPartition(node_index, W, nc_threshold, area_threshold);
 
 
-%  node_indexes to images
 
 for i=1:length(node_index)
     seg_I_temp_1 = zeros(N, c);
@@ -166,12 +161,11 @@ for i=1:length(node_index)
     
 end
 
-figure
+figure;
 seg_length = length(seg_I);
 for i=1:seg_length
-    subplot(seg_length/3,3,i)
-    imshow(seg_I{i});
-    %imwrite(Segment_I{i}, sprintf('test%d.jpg', i));
+    subplot(2,3,i)
+    imshow(seg_I{i}*255);
     %fprintf('Ncut(%d) = %f\n', i, Ncut{i});
 end
 

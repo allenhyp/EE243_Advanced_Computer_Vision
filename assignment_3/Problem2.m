@@ -28,7 +28,6 @@ raw(:,3) = img_b(:);
 
 
 imgRe=zeros(N,3);
-% kColor=jet(k);
 kColor=u(:,1:3);
 imgRe=p*kColor;
 
