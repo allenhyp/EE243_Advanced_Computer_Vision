@@ -8,18 +8,18 @@ subset = cellstr(subset);
 idx = strcmp(subset,'training'); trfeature = double(feature(idx,:)); trlabel = double(label(idx)'); 
 idx = strcmp(subset,'testing'); tefeature = double(feature(idx,:)); telabel = double(label(idx)');
 
-batchsize= ; % FILL IN AND MODIFY TO SEE CHANGE IN PERFORMANCE
-lr = ;       % FILL IN AND MODIFY TO SEE CHANGE IN PERFORMANCE
+batchsize= 10; % FILL IN AND MODIFY TO SEE CHANGE IN PERFORMANCE
+lr = 0.001;       % FILL IN AND MODIFY TO SEE CHANGE IN PERFORMANCE
 classlist = unique(trlabel);
 trlabel1hot = double(repmat(trlabel,[1 length(classlist)]) == repmat(classlist',[length(trlabel) 1]));
 telabel1hot = double(repmat(telabel,[1 length(classlist)]) == repmat(classlist',[length(telabel) 1]));
 
-
-theta = ; % INITIALIZE; FILL IN
+[m, n] = size(trfeature);
+theta = rand(n, 101); % INITIALIZE; FILL IN
 diff = 1;
 epoch = 1;
 
-while diff > 1e-10 && epoch < 4000
+while diff > 1e-10 && epoch < 100 % 4000
     theta_old = theta;
     
     % Train
@@ -31,7 +31,8 @@ while diff > 1e-10 && epoch < 4000
     diff = norm(theta_old-theta);
     
     % Predict; FILL IN TO ASSIGN test accuracy to variable test_accuracy
-    
+    predict = tefeature*theta;
+    test_accuracy = sum(sqrt(mean((predict-telabel).^2)));
     
     % Plot
     drawnow,plot(epoch,test_accuracy,'*b'); hold on;
@@ -45,8 +46,8 @@ fprintf('Test Accuracy: %f\n', test_accuracy);
 
 % FILL IN THE FIRST ARGUMENT; SHOULD BE A COLUMN VECTOR CONTAINING THE 50th
 % CATEGORY PREDICTION
-[TPR, FPR] = getROC(,telabel1hot(:,50));
-figure,plot(FPR,TPR,'LineWidth',1.5);
-xlabel('False Positive Rate');
-ylabel('True Positive Rate');
-grid on
+% [TPR, FPR] = getROC(,telabel1hot(:,50));
+% figure,plot(FPR,TPR,'LineWidth',1.5);
+% xlabel('False Positive Rate');
+% ylabel('True Positive Rate');
+% grid on

@@ -6,3 +6,7 @@ function new_theta = apply_gradients(x,l,theta,lr)
 % lr is the learning rate
 
 % FILL IN
+h = x*theta;
+loss = h - l;
+gradient = x.'*loss/length(l);
+new_theta = theta - lr*gradient;
