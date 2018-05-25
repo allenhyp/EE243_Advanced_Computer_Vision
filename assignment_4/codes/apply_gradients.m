@@ -7,6 +7,7 @@ function new_theta = apply_gradients(x,l,theta,lr)
 
 % FILL IN
 h = x*theta;
-loss = h - l;
+a = activation_function(h);
+loss = a - l;
 gradient = x.'*loss/length(l);
 new_theta = theta - lr*gradient;
