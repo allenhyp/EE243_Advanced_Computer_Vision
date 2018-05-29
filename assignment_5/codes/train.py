@@ -26,7 +26,9 @@ if not os.path.exists(model_save_path):
 
 def get_loss(logits, labels):
    # FILL IN; cross entropy loss between logits and labels
-   ce_loss = 
+   labels = tf.cast(labels, tf.int64)
+   ce = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels, logits=logits, name='cross_entropy_per_example')
+   ce_loss = tf.reduce_mean(ce, name='cross_entropy')
    tf.add_to_collection('losses', ce_loss)
    losses = tf.get_collection('losses')
    total_loss = tf.add_n(losses, name='total_loss')
