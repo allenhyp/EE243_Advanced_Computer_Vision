@@ -58,7 +58,12 @@ def main():
       var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
       loss = get_loss(logits, labels)
       # FILL IN. Obtain accuracy of given batch of data.
-      accuracy = 
+      predictions = tf.argmax(input=logits, axis=1)
+      temp_acc = 0
+      for i in len(predictions):
+         if predictions[i] == labels[i]:
+            temp_acc += 1
+      accuracy = temp_acc / len(predictions)
 
    apply_gradient_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss) # YOU MAY MODIFY THE OPTIMIZER
 
