@@ -94,6 +94,7 @@ def main():
 
    trlist = list(open('train.list','r'))
    testlist = list(open('test.list','r'))
+   test_images, test_labels = read_data(testlist, range(len(testlist)))
 
    test_accuracy = []
    train_accuracy = []
@@ -122,6 +123,14 @@ def main():
 
       # Test, Save model
       # FILL IN. Obtain test_accuracy on the entire test set and append it to variable test_accuracy. 
+      num_test_examples = len(test_images)
+      total_accuracy = 0
+      for offset in range(0, num_test_examples, batch_size):
+         bx, by = test_images[offset:offset + batch_size], test_labels[offset:offset + batch_size]
+         _inputs = {x: bx, y: by, is_training: False}
+         acc = sess.run([apply_gradient_op, loss, accuracy], feed_dict=_inputs)
+         total_accuracy += (acc * len(bx))
+      test_accuracy = total_accuracy / num_test_examples
 
       np.save('test_accuracy.npy',test_accuracy); sio.savemat('test_accuracy.mat', mdict={'test_accuracy': test_accuracy})
       np.save('train_accuracy.npy',train_accuracy); sio.savemat('train_accuracy.mat', mdict={'train_accuracy': train_accuracy})
