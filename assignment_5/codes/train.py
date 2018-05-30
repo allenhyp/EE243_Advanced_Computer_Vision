@@ -41,6 +41,7 @@ def read_data(L, readpos=None):
       readpos = random.sample(range(len(L)), batch_size)
    for i in range(len(readpos)):
       # FILL IN. Read images and label. image should be of dimension (batch_size,32,32,3) and label of dimension (batch_size,)
+      image.append(tf.keras.preprocessing.image.load_img(L[i], target_size=(32, 32)))
    return np.array(image).astype('float32')/128 - 1, np.array(label).astype('int64')
 
 def main():
