@@ -20,6 +20,7 @@ image_height = 32
 image_width = 32
 num_channels = 3
 use_pretrained_model = False
+gpu_number = 4
 
 if not os.path.exists(model_save_path):
    os.mkdir(model_save_path)
@@ -130,7 +131,7 @@ def main():
          _inputs = {x: bx, y: by, is_training: False}
          acc = sess.run([apply_gradient_op, loss, accuracy], feed_dict=_inputs)
          total_accuracy += (acc * len(bx))
-      test_accuracy = total_accuracy / num_test_examples
+      test_accuracy.append(total_accuracy / num_test_examples)
 
       np.save('test_accuracy.npy',test_accuracy); sio.savemat('test_accuracy.mat', mdict={'test_accuracy': test_accuracy})
       np.save('train_accuracy.npy',train_accuracy); sio.savemat('train_accuracy.mat', mdict={'train_accuracy': train_accuracy})
