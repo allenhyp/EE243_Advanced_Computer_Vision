@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow.contrib.layers import xavier_initializer
 import os, re, sys
 # TOWER_NAME = 'tower'
 # FLAGS = tf.app.flags.FLAGS
@@ -8,6 +9,19 @@ import os, re, sys
 # #                            """Path to the CIFAR-10 data directory.""")
 # tf.app.flags.DEFINE_boolean('use_fp16', False,
 #                             """Train the model using fp16.""")
+
+def variable_summaries(var):
+    """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
+    with tf.name_scope('summaries'):
+        mean = tf.reduce_mean(var)
+        tf.summary.scalar('mean', mean)
+        with tf.name_scope('stddev'):
+            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+        tf.summary.scalar('stddev', stddev)
+        tf.summary.scalar('max', tf.reduce_max(var))
+        tf.summary.scalar('min', tf.reduce_min(var))
+        tf.summary.histogram('histogram', var)
+
 
 def _variable_with_weight_decay(name, shape, wd):
     with tf.device('/cpu:0'):
@@ -32,7 +46,6 @@ def _variable_with_weight_decay(name, shape, wd):
 
 
 def batch_norm(input_, name, n_out, phase_train):
-    print(name)
     with tf.variable_scope(name + 'bn'):
         beta = tf.get_variable(tf.constant(0.0, shape=[n_out]), name=name + 'beta', trainable=True)
         gamma = tf.get_variable(tf.constant(1.0, shape=[n_out]), name=name + 'gamma', trainable=True)
@@ -67,36 +80,42 @@ def parametric_relu(input_, name):
     return pos + neg
 
 
-def conv(input_, name, k1, k2, n_o, wd, is_tr, s1=1, s2=1, is_act=True, is_bn=True, padding='SAME'):
+def conv(input_, name, k, n_o, wd, is_tr, s=1, is_act=True, is_bn=True, padding='SAME'):
 
     n_i = input_.get_shape()[-1].value
     with tf.variable_scope(name):
-        kernel = _variable_with_weight_decay('weights', shape=[k1, k2, n_i, n_o], wd=wd)
-        # weights = tf.get_variable(name + "weights",
-        #                           kernel,
-        #                           tf.float32, xavier_initializer())
+        kernel = _variable_with_weight_decay('weights', shape=[k, k, n_i, n_o], wd=wd)
+        weights = tf.get_variable(name + "weights",
+                                  kernel,
+                                  tf.float32, xavier_initializer())
         biases = tf.get_variable(name +"bias", [n_o], tf.float32, tf.constant_initializer(0.0))
-        conv = tf.nn.conv2d(input_, kernel, (1, s1, s2, 1), padding=padding)
+        conv = tf.nn.conv2d(input_, weights, (1, s, s, 1), padding=padding)
         bn = batch_norm(conv, name, n_o, is_tr) if is_bn else conv
         activation = parametric_relu(tf.nn.bias_add(bn, biases), name + "activation") if is_act else tf.nn.bias_add(bn, biases)
-        # variable_summaries(weights)
+        variable_summaries(weights)
         variable_summaries(biases)
     return activation
 
 
-def pool(input_, name, k1, k2, s1=2, s2=2):
-    return tf.nn.max_pool(input_, ksize=[1, k1, k2, 1], strides=[1, s1, s2, 1], padding='VALID', name=name)
+def pool(input_, name, k, s=2):
+    return tf.nn.max_pool(input_, ksize=[1, k, k, 1], strides=[1, s, s, 1], padding='VALID', name=name)
 
 
-# def run_model(input_, name="", conv_size, n_layers=4, pool_size=3, n_o, is_tr):
-#     n_i = input_.get_shape()[-1].value
-#     x = input_
-#     for i in range(n_layers):
-#         x = conv(x, name=name + "conv_" + str(i), k1=conv_size, k2=conv_size, n_o=n_o, is_tr=is_tr)
-#         x = pool(x, name="pool_" + str(i), k1=pool_size, k2=pool_size)
-#         x = tf.cond(is_tr, lambda: tf.nn.dropout(x), lambda:x)
-#     logits = tf.layers.dense(inputs=x, units=10)
-#     return logits
+def flatten(input_):
+    return tf.reshape(input_, [-1, np.prod(input_.shape.as_list()[1:])])
+
+
+def fully_conn(input_, n_o):
+    W = tf.get_variable(tf.truncated_normal([int(input_.shape[1]), n_o], stddev=.05))
+    b = tf.get_variable(tf.zeros([n_o]))
+    x = tf.add(tf.matmul(input_, W), b)  
+    return tf.nn.relu(x)
+
+
+def output(input_, n_o):
+    W = tf.Variable(tf.truncated_normal([int(input_.shape[1]), n_o], stddev=.05))
+    b = tf.Variable(tf.zeros([n_o]))
+    return tf.add(tf.matmul(input_, W), b)
 
 
 def inference(X, phase=False, dropout_rate=0.8, n_classes=10, weight_decay=1e-4):
@@ -108,11 +127,17 @@ def inference(X, phase=False, dropout_rate=0.8, n_classes=10, weight_decay=1e-4)
     pool_size = 3
     n_i = X.get_shape()[-1].value
     for i in range(n_layers):
-        X = conv(X, name="conv_" + str(i), k1=conv_size, k2=conv_size, n_o=n_o, wd=weight_decay, is_tr=is_tr)
-        X = pool(X, name="pool_" + str(i), k1=pool_size, k2=pool_size)
-        X = tf.cond(is_tr, lambda: tf.nn.dropout(X, rate=dropout_rate, training=True), lambda:X)
-    logits = tf.layers.dense(inputs=X, units=n_classes)
-    return logits
+        X = conv(X, name="conv_" + str(i), k=conv_size, n_o=n_o, wd=weight_decay, is_tr=is_tr, is_bn=False)
+        X = pool(X, name="pool_" + str(i), k=pool_size)
+        # X = tf.cond(is_tr, lambda: tf.nn.dropout(X, rate=dropout_rate, training=True), lambda:X)
+        X = tf.layers.dropout(X, rate=dropout_rate, training=True)
+
+    X = flatten(X)
+    X = fully_conn(X, 128)
+    X = tf.layers.dropout(X, rate=dropout_rate, training=True)
+    return output(X, n_classes)
+    # logits = tf.layers.dense(X, units=n_classes)
+    # return logits
     '''
     # 1st conv layer with max_pool, normalization, and dropout
     with tf.variable_scope('conv1') as scope:
