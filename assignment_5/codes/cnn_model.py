@@ -46,30 +46,6 @@ def _variable_with_weight_decay(name, shape, wd):
 #     tf.summary.scalar(tensor_name + '/sparsity',tf.nn.zero_fraction(x))
 
 
-# def batch_norm(input_, name, n_out, phase_train):
-#     with tf.variable_scope(name + 'bn'):
-#         beta = tf.get_variable(tf.constant(0.0, shape=[n_out]), name=name + 'beta', trainable=True)
-#         gamma = tf.get_variable(tf.constant(1.0, shape=[n_out]), name=name + 'gamma', trainable=True)
-#         if len(input_.get_shape().as_list()) > 3:
-#             batch_mean, batch_var = tf.nn.moments(input_, [0, 1, 2], name=name + 'moments')
-#         else:
-#             batch_mean, batch_var = tf.nn.moments(input_, [0, 1], name=name + 'moments')
-#         ema = tf.train.ExponentialMovingAverage(decay=0.5)
-
-#         def mean_var_with_update():
-#             ema_apply_op = ema.apply([batch_mean, batch_var])
-#             with tf.control_dependencies([ema_apply_op]):
-#                 return tf.identity(batch_mean), tf.identity(batch_var)
-
-#         mean, var = tf.cond(phase_train, mean_var_with_update, lambda: (
-#             ema.average(batch_mean), ema.average(batch_var)))
-#         normed = tf.nn.batch_normalization(input_, mean, var, beta, gamma, 1e-3)
-
-#     variable_summaries(beta)
-#     variable_summaries(gamma)
-#     return normed
-
-
 def parametric_relu(input_, name):
     alpha = tf.get_variable(name=name + '_alpha',
                             shape=input_.get_shape()[-1],
@@ -81,7 +57,7 @@ def parametric_relu(input_, name):
     return pos + neg
 
 
-def conv(input_, name, k, n_o, wd, is_tr, s=1, is_act=True, is_bn=True, padding='SAME'):
+def conv(input_, name, k, n_o, wd, is_tr, s=1, is_act=True, padding='SAME'):
     n_i = input_.get_shape()[-1].value
     with tf.variable_scope(name):
         weights = _variable_with_weight_decay('weights', shape=[k, k, n_i, n_o], wd=wd)
@@ -116,7 +92,7 @@ def flatten(input_):
 #     return tf.add(tf.matmul(input_, W), b)
 
 
-def fc(input_, name, n_o, wd, is_tr, is_act=True, is_bn=True):
+def fc(input_, name, n_o, wd, is_tr, is_act=True):
     n_i = input_.get_shape()[-1].value
     with tf.variable_scope(name):
         # weights = tf.get_variable(name + "weights", [n_i, n_o], tf.float32, xavier_initializer(
@@ -124,8 +100,9 @@ def fc(input_, name, n_o, wd, is_tr, is_act=True, is_bn=True):
         weights = _variable_with_weight_decay('weights', shape=[n_i, n_o], wd=wd)
         biases = tf.get_variable(name + "bias", [n_o], tf.float32, tf.constant_initializer(0.0))
         bn = tf.nn.bias_add(tf.matmul(input_, weights), biases)
-        activation = batch_norm(bn, name, n_o, is_tr) if is_bn else bn
-        logits = parametric_relu(activation, name + "activation") if is_act else activation
+        activation = tf.layers.batch_normalization(bn, axis=-1, training=is_tr, name='bn')
+        # logits = parametric_relu(activation, name + "activation") if is_act else activation
+        logits = tf.nn.relu(activation)
         
         variable_summaries(weights)
         variable_summaries(biases)
@@ -139,44 +116,14 @@ def inference(X, phase=False, dropout_rate=0.8, n_classes=10, weight_decay=1e-4)
     conv_size = 5
     pool_size = 3
     for i in range(n_layers):
-        X = conv(X, name="conv_" + str(i), k=conv_size, n_o=2**(5+i), wd=weight_decay, is_tr=phase, is_bn=False)
+        X = conv(X, name="conv_" + str(i), k=conv_size, n_o=2**(5+i), wd=weight_decay, is_tr=phase)
         X = pool(X, name="pool_" + str(i), k=pool_size)
         # X = tf.cond(is_tr, lambda: tf.nn.dropout(X, rate=dropout_rate, training=True), lambda:X)
         X = tf.layers.dropout(X, rate=dropout_rate, training=True)
 
     X = flatten(X)
-    X = fc(X, name="fc", n_o=n_classes, wd=weight_decay, is_tr=phase, is_bn=False)
-    X = tf.layers.dropout(X, rate=dropout_rate, training=phase)
+    X = fc(X, name="fc", n_o=n_classes, wd=weight_decay, is_tr=phase)
+    # X = tf.layers.dropout(X, rate=dropout_rate, training=phase)
+    logits = tf.layers.dense(inputs=X, units=10)
     return X
-    # logits = tf.layers.dense(X, units=n_classes)
-    # return logits
-    '''
-    # 1st conv layer with max_pool, normalization, and dropout
-    with tf.variable_scope('conv1') as scope:
-        kernel = _variable_with_weight_decay('weights', shape=[5, 5, 3, 64], wd=weight_decay)
-        conv = tf.nn.conv2d(X, kernel, [1, 1, 1, 1], padding='SAME')
-        biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.0))
-        pre_activation = tf.nn.bias_add(conv, biases)
-        conv1 = tf.nn.relu(pre_activation, name=scope.name)
-        _activation_summary(conv1)
-    pool1 = tf.nn.max_pool(conv1, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='SAME', name='pool1')
-    norm1 = tf.nn.lrn(pool1, 4, bias=1.0, alpha=0.001/9.0, beta=0.75, name='norm1')
-    dropout1 = tf.layers.dropout(inputs=norm1, rate=dropout_rate, training=True)
 
-    # 2nd conv layer with max_pool, normalization, and dropout
-    with tf.variable_scope('conv2') as scope:
-        kernel = _variable_with_weight_decay('weights', shape=[5, 5, 64, 64], wd=weight_decay)
-        conv = tf.nn.conv2d(X, kernel, [1, 1, 1, 1], padding='SAME')
-        biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.1))
-        pre_activation = tf.nn.bias_add(conv, biases)
-        conv1 = tf.nn.relu(pre_activation, name=scope.name)
-        _activation_summary(conv2)
-    pool2 = tf.nn.max_pool(conv2, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding='SAME', name='pool2')
-    norm2 = tf.nn.lrn(pool2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75, name='norm2')
-    dropout2 = tf.layers.dropout(inputs=norm2, rate=dropout_rate, training=True)
-
-    # logits layer
-    logits = tf.layers.dense(inputs=dropout2, units=10)
-
-    return logits
-    '''

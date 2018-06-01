@@ -20,7 +20,7 @@ image_height = 32
 image_width = 32
 num_channels = 3
 use_pretrained_model = False
-gpu_number = 4
+gpu_number = 0
 
 if not os.path.exists(model_save_path):
    os.mkdir(model_save_path)
@@ -38,14 +38,17 @@ def get_loss(logits, labels):
    return total_loss
 
 def read_data(L, readpos=None):
-   image = []
-   label = []
+   images = []
+   labels = []
    if readpos is None:
       readpos = random.sample(range(len(L)), batch_size)
    for i in range(len(readpos)):
       # FILL IN. Read images and label. image should be of dimension (batch_size,32,32,3) and label of dimension (batch_size,)
-      image.append(tf.keras.preprocessing.image.load_img(L[i], target_size=(32, 32)))
-   return np.array(image).astype('float32')/128 - 1, np.array(label).astype('int64')
+      # images.append(tf.keras.preprocessing.image.load_img(filename, target_size=(32, 32)))
+      filename, label = L[i].split(' ')
+      images.append(cv2.resize(cv2.imread(filename), dsize=(image_height,image_width), interpolation=cv2.INTER_CUBIC))
+      labels.append(label)
+   return np.array(images).astype('float32')/128 - 1, np.array(labels).astype('int64')
 
 def main():
 
@@ -61,12 +64,14 @@ def main():
       var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
       loss = get_loss(logits, labels)
       # FILL IN. Obtain accuracy of given batch of data.
-      predictions = tf.argmax(input=logits, axis=1)
-      temp_acc = 0
-      for i in len(predictions):
-         if predictions[i] == labels[i]:
-            temp_acc += 1
-      accuracy = temp_acc / len(predictions)
+      with tf.name_scope('prediction'):
+         # a_log = tf.argmax(logits, 1)
+         # a_lab = tf.argmax(labels, 1)
+         # correct_prediction = tf.equal(a_log, a_lab)
+         correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1))
+         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+      tf.summary.scalar('train_accuracy', accuracy)
+   print "accuracy", accuracy
 
    apply_gradient_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss) # YOU MAY MODIFY THE OPTIMIZER
 
@@ -97,7 +102,6 @@ def main():
 
    trlist = list(open('train.list','r'))
    testlist = list(open('test.list','r'))
-   test_images, test_labels = read_data(testlist, range(len(testlist)))
 
    test_accuracy = []
    train_accuracy = []
@@ -129,7 +133,7 @@ def main():
       num_test_examples = len(test_images)
       total_accuracy = 0
       for offset in range(0, num_test_examples, batch_size):
-         bx, by = test_images[offset:offset + batch_size], test_labels[offset:offset + batch_size]
+         bx, by = read_data(testlist, range(offset, min(offset+batch_size, len(testlist))))
          _inputs = {x: bx, y: by, is_training: False}
          acc = sess.run([apply_gradient_op, loss, accuracy], feed_dict=_inputs)
          total_accuracy += (acc * len(bx))

@@ -1,6 +1,7 @@
 import numpy as np
 import glob
 import scipy.io as sio 
+import os
 
 data_folder = '/data/ece243/cifar10'
 
