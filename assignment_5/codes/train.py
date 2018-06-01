@@ -27,8 +27,6 @@ if not os.path.exists(model_save_path):
 
 def get_loss(logits, labels):
    # FILL IN; cross entropy loss between logits and labels
-   print "logits:", logits
-   print "labels:", labels
    labels = tf.cast(labels, tf.int64)
    ce = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels, logits=logits, name='cross_entropy_per_example')
    ce_loss = tf.reduce_mean(ce, name='cross_entropy')
@@ -38,17 +36,17 @@ def get_loss(logits, labels):
    return total_loss
 
 def read_data(L, readpos=None):
-   images = []
-   labels = []
+   image = []
+   label = []
    if readpos is None:
       readpos = random.sample(range(len(L)), batch_size)
    for i in range(len(readpos)):
       # FILL IN. Read images and label. image should be of dimension (batch_size,32,32,3) and label of dimension (batch_size,)
       # images.append(tf.keras.preprocessing.image.load_img(filename, target_size=(32, 32)))
-      filename, label = L[i].split(' ')
-      images.append(cv2.resize(cv2.imread(filename), dsize=(image_height,image_width), interpolation=cv2.INTER_CUBIC))
-      labels.append(label)
-   return np.array(images).astype('float32')/128 - 1, np.array(labels).astype('int64')
+      f, l = L[i].split(' ')
+      image.append(cv2.resize(cv2.imread(f), dsize=(image_height,image_width), interpolation=cv2.INTER_CUBIC))
+      label.append(int(l))
+   return np.array(image).astype('float32')/128 - 1, np.array(label).astype('int64')
 
 def main():
 
@@ -68,10 +66,9 @@ def main():
          # a_log = tf.argmax(logits, 1)
          # a_lab = tf.argmax(labels, 1)
          # correct_prediction = tf.equal(a_log, a_lab)
-         correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1))
+         correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 0))
          accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
       tf.summary.scalar('train_accuracy', accuracy)
-   print "accuracy", accuracy
 
    apply_gradient_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss) # YOU MAY MODIFY THE OPTIMIZER
 
@@ -130,12 +127,11 @@ def main():
 
       # Test, Save model
       # FILL IN. Obtain test_accuracy on the entire test set and append it to variable test_accuracy. 
-      num_test_examples = len(test_images)
+      num_test_examples = len(testlist)
       total_accuracy = 0
       for offset in range(0, num_test_examples, batch_size):
          bx, by = read_data(testlist, range(offset, min(offset+batch_size, len(testlist))))
-         _inputs = {x: bx, y: by, is_training: False}
-         acc = sess.run([apply_gradient_op, loss, accuracy], feed_dict=_inputs)
+         _0_, _1_, acc = sess.run([apply_gradient_op, loss, accuracy], feed_dict={images: bx, labels: by, learning_rate: lr, phase: False, keep_prob: 0.8})
          total_accuracy += (acc * len(bx))
       test_accuracy.append(total_accuracy / num_test_examples)
 
