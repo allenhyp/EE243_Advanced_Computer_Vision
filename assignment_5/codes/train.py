@@ -9,9 +9,9 @@ import cv2
 import scipy.io as sio
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1' 
 
-batch_size = 32                     # YOU MAY MODIFY THIS
+batch_size = 128                     # YOU MAY MODIFY THIS
 max_epoch = 15                      # YOU MAY MODIFY THIS
-init_lr = 2e-3                      # YOU MAY MODIFY THIS
+init_lr = 5e-3                      # YOU MAY MODIFY THIS
 summary_ckpt = 50                   # YOU MAY MODIFY THIS
 model_ckpt = 500                    # YOU MAY MODIFY THIS
 model_save_path = './model'         
@@ -123,7 +123,7 @@ def main():
          train_accuracy.append(acc)
          _acc += acc * len(batch_labels)
 
-      lr = 0.95 * lr
+      # lr = 0.95 * lr
       # Test, Save model
       # FILL IN. Obtain test_accuracy on the entire test set and append it to variable test_accuracy. 
       num_test_examples = len(testlist)
